@@ -43,7 +43,7 @@ class Beaconify(plugins.Plugin):
         self.seq_tot = 0
         self.compress = False
         self.self_encounters = 0
-        self.restart_pwngrid_retries = 3
+        self.restart_pwngrid_retries = -1
         self.restart_pwngrid_time = 20
         self.waiting_pwngrid = False
 
@@ -67,7 +67,7 @@ class Beaconify(plugins.Plugin):
         def inner_func(obj):
             with obj._lock:
                 retries = obj.restart_pwngrid_retries
-                while retries > 0:
+                while retries != 0:
                     process = subprocess.Popen(
                         f"systemctl restart pwngrid-peer",
                         shell=True,
@@ -186,7 +186,8 @@ class Beaconify(plugins.Plugin):
             while time.perf_counter() - starting_time < time_duration:
                 try:
                     if obj.waiting_pwngrid:
-                        logging.info(f"[Beaconify] Can't send beacon. Waiting pwngrid cooldown.")
+                        logging.info(f"[Beaconify] Can't send beacon. Waiting pwngrid cooldown. Sleeping {obj.sleeptime} seconds.")
+                        time.sleep(obj.sleeptime)
                         continue
                     payload = json.dumps(get_advertisement_data()).encode()
                     packet = obj.pack_one_of(payload)
