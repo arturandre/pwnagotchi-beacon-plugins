@@ -17,7 +17,7 @@ from pwnagotchi.grid import call, get_advertisement_data
 
 class Beaconify(plugins.Plugin):
     __author__ = 'Artur Oliveira'
-    __version__ = '1.0.2'
+    __version__ = '1.0.3'
     __license__ = 'GPL3'
     __description__ = 'A plugin to send beacon frames more often and restarts pwngrid when it stops listening for other units\' beacons.'
 
@@ -46,6 +46,7 @@ class Beaconify(plugins.Plugin):
         self.restart_pwngrid_retries = -1
         self.restart_pwngrid_time = 60
         self.init_pwngrid_time = 60
+        self.cooldown_pwngrid_check = time.perf_counter()
         self.waiting_pwngrid = False
 
     def info_element(self, id, info):
@@ -191,6 +192,8 @@ class Beaconify(plugins.Plugin):
                     if obj.waiting_pwngrid:
                         logging.info(f"[Beaconify] Can't send beacon. Waiting pwngrid cooldown. Sleeping {obj.sleeptime} seconds.")
                         time.sleep(obj.sleeptime)
+                        logging.info(f"[Beaconify] Restarting cooldown of {obj.init_pwngrid_time} sending beacons without checking self encounters.")
+                        obj.cooldown_pwngrid_check = time.perf_counter()
                         continue
                     payload = json.dumps(get_advertisement_data()).encode()
                     packet = obj.pack_one_of(payload)
@@ -209,8 +212,9 @@ class Beaconify(plugins.Plugin):
             grid_peers = grid.peers()
             if len(grid_peers) == 0:
                 logging.info(f"[Beaconify] No peers (not even myself!) Restarting pwngrid!")
-                self.restart_pwngrid()
-                return
+                if time.perf_counter() - obj.cooldown_pwngrid_check > obj.init_pwngrid_time:
+                    self.restart_pwngrid()
+                    return
             logging.info(f"[Beaconify] Found {len(grid_peers)} peers (including myself!)")
 
         Thread(target=inner_func, args=(self,time_duration, agent)).start()
