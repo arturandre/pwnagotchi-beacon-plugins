@@ -17,7 +17,7 @@ from pwnagotchi.grid import call, get_advertisement_data
 
 class Beaconify(plugins.Plugin):
     __author__ = 'Artur Oliveira'
-    __version__ = '1.0.1'
+    __version__ = '1.0.2'
     __license__ = 'GPL3'
     __description__ = 'A plugin to send beacon frames more often and restarts pwngrid when it stops listening for other units\' beacons.'
 
@@ -44,7 +44,8 @@ class Beaconify(plugins.Plugin):
         self.compress = False
         self.self_encounters = 0
         self.restart_pwngrid_retries = -1
-        self.restart_pwngrid_time = 20
+        self.restart_pwngrid_time = 60
+        self.init_pwngrid_time = 60
         self.waiting_pwngrid = False
 
     def info_element(self, id, info):
@@ -66,6 +67,7 @@ class Beaconify(plugins.Plugin):
     def restart_pwngrid(self):
         def inner_func(obj):
             with obj._lock:
+                self.waiting_pwngrid = True
                 retries = obj.restart_pwngrid_retries
                 while retries != 0:
                     process = subprocess.Popen(
@@ -76,11 +78,12 @@ class Beaconify(plugins.Plugin):
                         stderr=None, executable="/bin/bash")
                     process.wait()
                     if process.returncode > 0:
+                        logging.warning(f"[Beaconify] pwngrid restarted! Waiting {obj.init_pwngrid_time} for its initialization.")
+                        time.sleep(obj.init_pwngrid_time)
                         self.waiting_pwngrid = False
                         return
                     else:
                         logging.warning(f"[Beaconify] Failed to restart pwngrid! Waiting {obj.restart_pwngrid_time} before trying again.")
-                        self.waiting_pwngrid = True
                         time.sleep(obj.restart_pwngrid_time)
                         retries -= 1
                 logging.warning(f"[Beaconify] Failed to restart pwngrid too many times! The unit probably won't send or receive beacons until reboot.")
