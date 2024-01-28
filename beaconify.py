@@ -15,9 +15,24 @@ import pwnagotchi
 import pwnagotchi.plugins as plugins
 from pwnagotchi.grid import call, get_advertisement_data
 
+# Ref: https://stackoverflow.com/a/325528/3562468
+class StoppableThread(threading.Thread):
+    """Thread class with a stop() method. The thread itself has to check
+    regularly for the stopped() condition."""
+
+    def __init__(self,  *args, **kwargs):
+        super(StoppableThread, self).__init__(*args, **kwargs)
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
+
 class Beaconify(plugins.Plugin):
     __author__ = 'Artur Oliveira'
-    __version__ = '1.0.6'
+    __version__ = '1.0.7'
     __license__ = 'GPL3'
     __description__ = 'A plugin to send beacon frames more often and restarts pwngrid when it stops listening for other units\' beacons.'
 
@@ -93,7 +108,7 @@ class Beaconify(plugins.Plugin):
                 self.waiting_pwngrid = False
 
         if (self.pwngrid_thread is None) or (not self.pwngrid_thread.is_alive()) :
-            self.pwngrid_thread = Thread(target=inner_func, args=(self,))
+            self.pwngrid_thread = StoppableThread(target=inner_func, args=(self,))
             self.pwngrid_thread.start()
         else:
             logging.info(f"[Beaconify] Skipping pwngrid restart thread because there is one alive yet.")
@@ -127,7 +142,21 @@ class Beaconify(plugins.Plugin):
 
     def on_unload(self, ui):
         # Stop sending beacons
-        pass
+        logging.info("[Beaconify] Unloading. Stopping beacon and pwngrid restart threads.")
+        join_thread = []
+        if self.beacon_thread is not None and\
+            self.beacon_thread.is_alive():
+            self.beacon_thread.stop()
+            join_thread.append(self.beacon_thread)
+            logging.info("[Beaconify] Beacon thread stopped.")
+        if self.pwngrid_thread is not None and\
+            self.pwngrid_thread.is_alive():
+            self.pwngrid_thread.stop()
+            join_thread.append(self.pwngrid_thread)
+            logging.info("[Beaconify] pwngrid restart thread stopped.")
+        for t in join_thread:
+            t.join()
+        logging.info("[Beaconify] All threads joined. Exiting.")
 
     def on_ready(self, agent):
         self.identity = agent.fingerprint()
@@ -229,7 +258,7 @@ class Beaconify(plugins.Plugin):
                 logging.info(f"[Beaconify] Cooldown of {pwngrid_check_cooldown} before checking pwngrid again.")
 
         if (self.beacon_thread is None) or (not self.beacon_thread.is_alive()) :
-            self.beacon_thread = Thread(target=inner_func, args=(self,time_duration, agent))
+            self.beacon_thread = StoppableThread(target=inner_func, args=(self,time_duration, agent))
             self.beacon_thread.start()
         else:
             logging.info(f"[Beaconify] Skipping beacon thread because there is one alive yet.")
