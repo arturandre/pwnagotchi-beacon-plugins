@@ -17,7 +17,7 @@ from pwnagotchi.grid import call, get_advertisement_data
 
 class Beaconify(plugins.Plugin):
     __author__ = 'Artur Oliveira'
-    __version__ = '1.0.3'
+    __version__ = '1.0.4'
     __license__ = 'GPL3'
     __description__ = 'A plugin to send beacon frames more often and restarts pwngrid when it stops listening for other units\' beacons.'
 
@@ -88,6 +88,7 @@ class Beaconify(plugins.Plugin):
                         time.sleep(obj.restart_pwngrid_time)
                         retries -= 1
                 logging.warning(f"[Beaconify] Failed to restart pwngrid too many times! The unit probably won't send or receive beacons until reboot.")
+                self.waiting_pwngrid = False
         Thread(target=inner_func, args=(self,)).start()
         
 
