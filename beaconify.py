@@ -17,7 +17,7 @@ from pwnagotchi.grid import call, get_advertisement_data
 
 class Beaconify(plugins.Plugin):
     __author__ = 'Artur Oliveira'
-    __version__ = '1.0.5'
+    __version__ = '1.0.6'
     __license__ = 'GPL3'
     __description__ = 'A plugin to send beacon frames more often and restarts pwngrid when it stops listening for other units\' beacons.'
 
@@ -48,6 +48,8 @@ class Beaconify(plugins.Plugin):
         self.init_pwngrid_time = 60
         self.cooldown_pwngrid_check = time.perf_counter()
         self.waiting_pwngrid = False
+        self.beacon_thread = None
+        self.pwngrid_thread = None
 
     def info_element(self, id, info):
         return Dot11Elt(ID=id, info=info)
@@ -89,7 +91,14 @@ class Beaconify(plugins.Plugin):
                         retries -= 1
                 logging.warning(f"[Beaconify] Failed to restart pwngrid too many times! The unit probably won't send or receive beacons until reboot.")
                 self.waiting_pwngrid = False
-        Thread(target=inner_func, args=(self,)).start()
+
+        if (self.pwngrid_thread is None) or (not self.pwngrid_thread.is_alive()) :
+            self.pwngrid_thread = Thread(target=inner_func, args=(self,))
+            self.pwngrid_thread.start()
+        else:
+            logging.info(f"[Beaconify] Skipping pwngrid restart thread because there is one alive yet.")
+
+        
         
 
     # called when a known peer is lost
@@ -214,10 +223,15 @@ class Beaconify(plugins.Plugin):
                 if len(grid_peers) == 0:
                     logging.info(f"[Beaconify] No peers (not even myself!) Restarting pwngrid!")
                     self.restart_pwngrid()
-                    return
-                logging.info(f"[Beaconify] Found {len(grid_peers)} peers (including myself!)")
+                else:
+                    logging.info(f"[Beaconify] Found {len(grid_peers)} peers (including myself!)")
             else:
                 logging.info(f"[Beaconify] Cooldown of {pwngrid_check_cooldown} before checking pwngrid again.")
 
-        Thread(target=inner_func, args=(self,time_duration, agent)).start()
+        if (self.beacon_thread is None) or (not self.beacon_thread.is_alive()) :
+            self.beacon_thread = Thread(target=inner_func, args=(self,time_duration, agent))
+            self.beacon_thread.start()
+        else:
+            logging.info(f"[Beaconify] Skipping beacon thread because there is one alive yet.")
+        
 
