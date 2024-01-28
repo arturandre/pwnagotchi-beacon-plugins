@@ -17,7 +17,7 @@ from pwnagotchi.grid import call, get_advertisement_data
 
 class Beaconify(plugins.Plugin):
     __author__ = 'Artur Oliveira'
-    __version__ = '1.0.4'
+    __version__ = '1.0.5'
     __license__ = 'GPL3'
     __description__ = 'A plugin to send beacon frames more often and restarts pwngrid when it stops listening for other units\' beacons.'
 
@@ -208,15 +208,16 @@ class Beaconify(plugins.Plugin):
             #Check for deafness
             # If the unit stops hearing itself (and consequently other units),
             # we can fix it by restarting pwngrid.
-            
-            #if peer.identity() == agent.fingerprint():
-            grid_peers = grid.peers()
-            if len(grid_peers) == 0:
-                logging.info(f"[Beaconify] No peers (not even myself!) Restarting pwngrid!")
-                if time.perf_counter() - obj.cooldown_pwngrid_check > obj.init_pwngrid_time:
+            pwngrid_check_cooldown = time.perf_counter() - obj.cooldown_pwngrid_check
+            if pwngrid_check_cooldown > obj.init_pwngrid_time:
+                grid_peers = grid.peers()
+                if len(grid_peers) == 0:
+                    logging.info(f"[Beaconify] No peers (not even myself!) Restarting pwngrid!")
                     self.restart_pwngrid()
                     return
-            logging.info(f"[Beaconify] Found {len(grid_peers)} peers (including myself!)")
+                logging.info(f"[Beaconify] Found {len(grid_peers)} peers (including myself!)")
+            else:
+                logging.info(f"[Beaconify] Cooldown of {pwngrid_check_cooldown} before checking pwngrid again.")
 
         Thread(target=inner_func, args=(self,time_duration, agent)).start()
 
