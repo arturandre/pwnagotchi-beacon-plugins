@@ -32,7 +32,7 @@ class StoppableThread(threading.Thread):
 
 class Beaconify(plugins.Plugin):
     __author__ = 'Artur Oliveira'
-    __version__ = '1.0.7'
+    __version__ = '1.0.8'
     __license__ = 'GPL3'
     __description__ = 'A plugin to send beacon frames more often and restarts pwngrid when it stops listening for other units\' beacons.'
 
@@ -86,26 +86,26 @@ class Beaconify(plugins.Plugin):
         def inner_func(obj):
             with obj._lock:
                 self.waiting_pwngrid = True
-                retries = obj.restart_pwngrid_retries
-                while retries != 0:
-                    process = subprocess.Popen(
-                        f"systemctl restart pwngrid-peer",
-                        shell=True,
-                        stdin=None,
-                        stdout=open("/dev/null", "w"),
-                        stderr=None, executable="/bin/bash")
-                    process.wait()
-                    if process.returncode > 0:
-                        logging.warning(f"[Beaconify] pwngrid restarted! Waiting {obj.init_pwngrid_time} for its initialization.")
-                        time.sleep(obj.init_pwngrid_time)
-                        self.waiting_pwngrid = False
-                        return
-                    else:
-                        logging.warning(f"[Beaconify] Failed to restart pwngrid! Waiting {obj.restart_pwngrid_time} before trying again.")
-                        time.sleep(obj.restart_pwngrid_time)
-                        retries -= 1
-                logging.warning(f"[Beaconify] Failed to restart pwngrid too many times! The unit probably won't send or receive beacons until reboot.")
-                self.waiting_pwngrid = False
+                # retries = obj.restart_pwngrid_retries
+                # while retries != 0:
+                process = subprocess.Popen(
+                    f"systemctl restart pwngrid-peer",
+                    shell=True,
+                    stdin=None,
+                    stdout=open("/dev/null", "w"),
+                    stderr=None, executable="/bin/bash")
+                process.wait()
+                    # if process.returncode > 0:
+                    #     logging.warning(f"[Beaconify] pwngrid restarted! Waiting {obj.init_pwngrid_time} for its initialization.")
+                    #     time.sleep(obj.init_pwngrid_time)
+                    #     self.waiting_pwngrid = False
+                    #     return
+                    # else:
+                    #     logging.warning(f"[Beaconify] Failed to restart pwngrid! Waiting {obj.restart_pwngrid_time} before trying again.")
+                    #     time.sleep(obj.restart_pwngrid_time)
+                    #     retries -= 1
+                # logging.warning(f"[Beaconify] Failed to restart pwngrid too many times! The unit probably won't send or receive beacons until reboot.")
+                # self.waiting_pwngrid = False
 
         if (self.pwngrid_thread is None) or (not self.pwngrid_thread.is_alive()) :
             self.pwngrid_thread = StoppableThread(target=inner_func, args=(self,))
